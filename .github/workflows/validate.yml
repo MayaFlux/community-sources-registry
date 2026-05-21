@@ -1,0 +1,155 @@
+name: Validate Community Module
+
+on:
+  pull_request:
+    paths:
+      - registry.json
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout registry
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed entries
+        id: diff
+        run: |
+          git diff origin/main...HEAD -- registry.json > registry.diff
+          python3 - <<'EOF'
+          import json, sys
+
+          with open("registry.json") as f:
+              registry = json.load(f)
+
+          # Get the base registry from main
+          import subprocess
+          base = subprocess.run(
+              ["git", "show", "origin/main:registry.json"],
+              capture_output=True, text=True
+          )
+          base_registry = json.loads(base.stdout) if base.returncode == 0 else []
+          base_names = {e["name"] for e in base_registry}
+
+          new_entries = [e for e in registry if e["name"] not in base_names]
+          if not new_entries:
+              print("No new entries found in registry.json")
+              sys.exit(1)
+
+          with open("new_entries.json", "w") as f:
+              json.dump(new_entries, f)
+
+          print(f"Found {len(new_entries)} new entries: {[e['name'] for e in new_entries]}")
+          EOF
+
+      - name: Validate registry.json schema
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          with open("registry.json") as f:
+              registry = json.load(f)
+
+          required_fields = {"name", "repo", "min_version", "needs_lila", "licence", "description"}
+          errors = []
+
+          for entry in registry:
+              name = entry.get("name", "<unknown>")
+              missing = required_fields - entry.keys()
+              if missing:
+                  errors.append(f"[{name}] missing fields: {missing}")
+              if not isinstance(entry.get("needs_lila"), bool):
+                  errors.append(f"[{name}] needs_lila must be a boolean")
+              if not entry.get("name", "").replace("_", "").isalnum():
+                  errors.append(f"[{name}] name must be snake_case alphanumeric")
+              if not entry.get("repo", "").startswith("https://"):
+                  errors.append(f"[{name}] repo must be an https URL")
+              if entry.get("licence", "") in ("", "LICENCE"):
+                  errors.append(f"[{name}] licence must be set to a valid licence identifier")
+              if entry.get("description", "") == "":
+                  errors.append(f"[{name}] description must not be empty")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}")
+              sys.exit(1)
+
+          print("registry.json schema OK")
+          EOF
+
+      - name: Validate new modules
+        run: |
+          python3 - <<'EOF'
+          import json, sys, subprocess, os, tempfile
+          from pathlib import Path
+
+          with open("new_entries.json") as f:
+              entries = json.load(f)
+
+          errors = []
+
+          for entry in entries:
+              name = entry["name"]
+              repo = entry["repo"]
+              min_version = entry["min_version"]
+
+              print(f"\nValidating: {name} ({repo})")
+
+              with tempfile.TemporaryDirectory() as tmp:
+                  result = subprocess.run(
+                      ["git", "clone", "--depth=1", repo, tmp],
+                      capture_output=True, text=True
+                  )
+                  if result.returncode != 0:
+                      errors.append(f"[{name}] failed to clone {repo}: {result.stderr}")
+                      continue
+
+                  tmp = Path(tmp)
+
+                  # Check community.json
+                  cj = tmp / "community.json"
+                  if not cj.exists():
+                      errors.append(f"[{name}] missing community.json")
+                  else:
+                      try:
+                          data = json.loads(cj.read_text())
+                          if data.get("name") != name:
+                              errors.append(f"[{name}] community.json name mismatch: got '{data.get('name')}'")
+                          if data.get("min_version") != min_version:
+                              errors.append(f"[{name}] community.json min_version mismatch: got '{data.get('min_version')}'")
+                      except json.JSONDecodeError as e:
+                          errors.append(f"[{name}] community.json invalid JSON: {e}")
+
+                  # Check name.cmake exists
+                  cmake_file = tmp / f"{name}.cmake"
+                  if not cmake_file.exists():
+                      errors.append(f"[{name}] missing {name}.cmake")
+                  else:
+                      content = cmake_file.read_text()
+                      if f"add_library({name}" not in content:
+                          errors.append(f"[{name}] {name}.cmake does not define target '{name}'")
+                      if "MF_MIN_VERSION" not in content:
+                          errors.append(f"[{name}] {name}.cmake does not set MF_MIN_VERSION")
+                      if "MayaFlux::MayaFluxLib" not in content:
+                          errors.append(f"[{name}] {name}.cmake does not link MayaFlux::MayaFluxLib")
+
+                  # Check src/ exists and is non-empty
+                  src = tmp / "src"
+                  if not src.exists():
+                      errors.append(f"[{name}] missing src/ directory")
+                  elif not any(src.iterdir()):
+                      errors.append(f"[{name}] src/ directory is empty")
+
+                  if not errors:
+                      print(f"  OK: {name}")
+
+          if errors:
+              print("\nValidation failed:")
+              for e in errors:
+                  print(f"  ERROR: {e}")
+              sys.exit(1)
+
+          print("\nAll modules validated successfully.")
+          EOF
