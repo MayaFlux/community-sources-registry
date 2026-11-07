@@ -14,5 +14,13 @@
     "needs_lila": false,
     "licence": "GPLv3",
     "description": "Envelope following for audio: attack/release peak and RMS kernels in Kinesis, a block-level EnvelopeProcessor with feature, signal and gain outputs and sidechain input, and a per-sample EnvelopeFollower node."
+},
+{
+    "name": "mf_vocalic",
+    "repo": "https://github.com/kdlydia/mf_vocalic",
+    "min_version": "1.0.0",
+    "needs_lila": false,
+    "licence": "GPLv3",
+    "description": "Records a voice through a buffer pipeline and splits it into vowel and consonant streams on the GPU: a Yantra grammar (Vocalic::Classify | Vocalic::Separate) of an Analyzer and an Extractor running ShaderSpec compute kernels, a BufferPipeline recorder, and TapSet playback of the two streams."
 }
 ]
