@@ -21,6 +21,30 @@
     "min_version": "1.0.0",
     "needs_lila": false,
     "licence": "GPLv3",
-    "description": "Records a voice through a buffer pipeline and splits it into vowel and consonant streams on the GPU: a Yantra grammar (Vocalic::Classify | Vocalic::Separate) of an Analyzer and an Extractor running ShaderSpec compute kernels, a BufferPipeline recorder, and TapSet playback of the two streams."
+    "description": "Splits a recorded voice into its speech, its vowels and its consonants with MayaFlux's speech networks, and loops the vowels and consonants with a level and speed each."
+},
+{
+    "name": "mf_gamepads",
+    "repo": "https://github.com/kdlydia/mf_gamepads",
+    "min_version": "1.0.0",
+    "needs_lila": false,
+    "licence": "GPLv3",
+    "description": "Gamepad layouts for HIDNode, so south, left_x or dpad_up name the same control on a DualShock 4 or DualSense (USB or Bluetooth), a Switch Pro Controller or Joy-Con, an Xbox Wireless pad over Bluetooth, or any pad with the Android HID layout."
+},
+{
+    "name": "mf_kinect",
+    "repo": "https://github.com/kdlydia/mf_kinect",
+    "min_version": "1.0.0",
+    "needs_lila": false,
+    "licence": "GPLv3",
+    "description": "A camera source for the first Kinect through libfreenect. Depth in millimetres, depth lined up with colour, or colour, as a CameraContainer that goes to Graphics like any camera."
+},
+{
+    "name": "mf_voicegen",
+    "repo": "https://github.com/kdlydia/mf_voicegen",
+    "min_version": "1.0.0",
+    "needs_lila": false,
+    "licence": "GPLv3",
+    "description": "Speech synthesis on MayaFlux's tensor kernels: PyTorch checkpoints read without Python, the kernels vocoders need, and the Vocos vocoder."
 }
 ]
